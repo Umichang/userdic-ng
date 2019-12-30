@@ -1,4 +1,5 @@
 #  Copyright (C) 2017 Noriaki TANAKA (dtana@startide.jp)
+#  Copyright (C) 2019 Kai Kuchiki (kuchiki@tls.org)
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License as
@@ -14,9 +15,7 @@
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #  02111-1307, USA.
-#
-# $Id: Makefile,v 1.17 2017/01/17 11:19:53 dtana Exp $
-#
+
 UD_GENERIC = generic.txt
 UD_MOZC    = mozc.txt
 UD_ANTHY   = private_words_default
@@ -24,9 +23,9 @@ UD_ATOK    = atok.txt
 UD_MSIME   = msime.txt
 UD_APPLE   = apple.plist
 BINDIR	   = /usr/local/bin
-COMMAND    = userdic
+COMMAND    = userdic-ng
 VERSION    = 1.0
-DISTDIR    = userdic-${VERSION}
+DISTDIR    = userdic-ng-${VERSION}
 
 ${COMMAND}: userdic.rb hinshi.rb normkana.rb
 	./userdic.rb build > $@
@@ -51,7 +50,7 @@ ${UD_MSIME}: ${UD_GENERIC} ${COMMAND}
 ${UD_APPLE}: ${UD_GENERIC} ${COMMAND}
 	./${COMMAND} generic apple < ${UD_GENERIC} > $@
 
-${UD_GENERIC}:; ln -s ${HOME}/.userdic $@
+${UD_GENERIC}:; ln -s ${HOME}/.userdic-ng $@
 
 install:; install -c ${COMMAND} ${BINDIR}
 clean:
