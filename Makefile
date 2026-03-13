@@ -52,7 +52,8 @@ ${UD_APPLE}: ${UD_GENERIC} ${COMMAND}
 
 ${UD_GENERIC}:; ln -s ${HOME}/.userdic-ng $@
 
-install:; install -c ${COMMAND} ${BINDIR}
+install: ${COMMAND}
+	install -c ${COMMAND} ${BINDIR}
 clean:
 	rm -rf ${COMMAND} hinshi.rb ${UD_GENERIC} \
 	   ${UD_MOZC} ${UD_ANTHY} ${UD_ATOK} ${UD_MSIME} ${UD_APPLE} \
