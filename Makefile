@@ -27,7 +27,7 @@ COMMAND    = userdic-ng
 VERSION    = 1.0
 DISTDIR    = userdic-ng-${VERSION}
 
-${COMMAND}: userdic.rb hinshi.rb normkana.rb
+${COMMAND}: userdic.rb hinshi.rb record.rb kana_normalizer.rb hinshi_map.rb apple_plist.rb encoding_io.rb formats.rb converter.rb builder.rb
 	./userdic.rb build > $@
 	chmod +x $@
 hinshi.rb: hinshi mkhinshi.rb
@@ -62,5 +62,6 @@ dist: ${COMMAND}
 	rm -rf ${DISTDIR}
 	mkdir  ${DISTDIR}
 	cp -p Makefile userdic.rb mkhinshi.rb COPYING \
-	   normkana.rb hinshi ${COMMAND} ${DISTDIR}
+	   record.rb kana_normalizer.rb hinshi_map.rb apple_plist.rb encoding_io.rb \
+	   formats.rb converter.rb builder.rb hinshi ${COMMAND} ${DISTDIR}
 	tar czvpf ${DISTDIR}.tar.gz ${DISTDIR}

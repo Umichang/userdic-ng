@@ -20,241 +20,66 @@
 #
 # $Id: userdic.rb,v 1.34 2017/01/21 08:50:09 dtana Exp $
 #
-require 'rexml/document'
 require 'optparse'
+require 'rexml/document'
 
 require './hinshi.rb'
-require './normkana.rb'
+require './record.rb'
+require './kana_normalizer.rb'
+require './hinshi_map.rb'
+require './apple_plist.rb'
+require './encoding_io.rb'
+require './formats.rb'
+require './converter.rb'
+require './builder.rb'
+
+USAGE = <<~TEXT.freeze
+  Usage: userdic-ng [--input-encoding ENCODING] [--output-encoding ENCODING] <from> <to> < input > output
+         from, to = mozc, google, anthy, canna, atok, msime, wnn, apple, generic
+TEXT
 
 def usage
-    STDERR.printf "Usage: userdic-ng [--input-encoding ENCODING] [--output-encoding ENCODING] <from> <to> < input > output\n"
-    STDERR.printf "       from, to = mozc, google, anthy, canna, "
-    STDERR.printf "atok, msime, wnn, apple, generic\n"
+  STDERR.print USAGE
+  exit 1
+end
+
+def validate_input_options!(from_type, to_type, options)
+  if from_type == 'apple' && options[:input_encoding]
+    STDERR.printf "userdic-ng: error: --input-encoding is not supported with apple input\n"
     exit 1
-end
-
-def getr(type, s)
-    s.strip!
-    return nil if (s == '' || s =~ /^!/ || s[0] == "\\")
-    case type
-    when 'generic', 'mozc', 'msime', 'wnn'
-        pron, word, prop = s.split(/\t+/)
-        prop_ = $hinshi_f[type][prop]
-    when 'google'
-        return getr('mozc', s)
-    when 'atok'
-        s.gsub!(/[､,]/, "\t") if s !~ /\t/
-        pron, word, prop = s.split(/\t+/)
-        pron = pron.norm_kana
-        prop = prop.gsub(/\*$/, '') if prop
-        prop_ = $hinshi_f[type][prop]
-    when 'anthy'
-        pron, prop, word = s.split
-        prop = prop.gsub('#', '').gsub(/\*.*$/, '')
-        prop_ = $hinshi_f[type][prop]
-    when 'canna'
-        return getr('anthy', s)
-    when 'apple'
-        pron, word = s.split(/\t+/)
-        prop_ = '名詞'
-    else
-        STDERR.printf "%s: not supported yet\n", type
-        usage
-    end
-    if word == nil
-        STDERR.printf "%s: incorrect record\n", s
-        return nil
-    end
-    if prop_ == nil
-        STDERR.printf "%s: Unknown 品詞: %s\n", s, prop
-        prop_ = '名詞'
-    end
-    sprintf "%s\t%s\t%s", pron, word, prop_
-end
-
-def putr(type, s)
-    return nil if s == nil
-    pron, word, prop = s.split(/\t+/)
-    case type
-    when 'generic', 'mozc', 'atok', 'msime', 'wnn'
-        prop = $hinshi_t[type][prop]
-        r = sprintf "%s\t%s\t%s", pron, word, prop
-    when 'apple'
-        r = sprintf "%s\t%s", pron, word
-    when 'anthy'
-        prop = $hinshi_t[type][prop]
-        r = sprintf "%s #%s*500 %s", pron, prop, word
-    when 'google'
-        return putr('mozc', s)
-    when 'canna'
-        return putr('anthy', s)
-    else
-        STDERR.printf "%s: not supported yet\n", type
-        usage
-    end
-    r
-end
-
-def puth(type, n)
-    case type
-    when 'msime'
-        return "!Microsoft IME Dictionary Tool"
-    when 'atok'
-        return "!!ATOK_TANGO_TEXT_HEADER_1"
-    when 'wnn'
-        return sprintf("\\comment \n\\total %d\n\n", n)
-    end
-    nil
-end
-
-class Array
-    def save_with_en(en, f = STDOUT)
-        case en
-        when 'UTF-16'
-            f.binmode
-            f.printf "\xff\xfe"
-            self.each {|s| f.write (s + "\n").encode('UTF-16LE')}
-        else
-            self.each {|s| f.write (s + "\n").encode(en, :undef => :replace)}
-        end
-    end
-    def default_encoding(type)
-        case type
-        when 'msime', 'atok'
-            e = 'UTF-16'
-        when 'wnn', 'canna'
-            e = 'EUC-JP'
-        else
-            e = 'UTF-8'
-        end
-        e
-    end
-    def save(type, output_encoding = nil)
-        r = [puth(type, self.size)]
-        r += self.map do |s|
-            putr(type, s)
-        end
-        r.delete(nil)
-        if type == 'apple' && output_encoding
-            raise ArgumentError, '--output-encoding is not supported with apple output'
-        end
-        r = r.encode_plist if type == 'apple'
-        r.save_with_en(output_encoding || default_encoding(type))
-    end
-
-    def encode_plist
-        r = ['<?xml version="1.0" encoding="UTF-8"?>' +
-             '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" ' +
-             '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">' +
-             '<plist version="1.0"><array>']
-        self.each do |s|
-            pron, word = s.split(/\t+/)
-            t =  "<dict>\n"
-            t += "<key>phrase</key>\n"
-            t += sprintf("<string>%s</string>\n", word)
-            t += "<key>shortcut</key>\n"
-            t += sprintf("<string>%s</string>\n", pron)
-            t += "</dict>\n"
-            r << t
-        end
-        r + ['</array></plist>']
-    end
-    def decode_plist
-        data = ''
-        self.each {|s| data += s}
-        r = []
-        doc = REXML::Document.new(data)
-        doc.elements.each('plist/array/dict') do |e|
-            word = e.elements['string[1]'].text
-            pron = e.elements['string[2]'].text
-            r << pron + "\t" + word
-        end
-        r
-    end
-end
-
-def validate_encoding!(name)
-    Encoding.find(name)
-rescue ArgumentError
-    STDERR.printf "userdic-ng: error: unknown encoding: %s\n", name
+  end
+  if to_type == 'apple' && options[:output_encoding]
+    STDERR.printf "userdic-ng: error: --output-encoding is not supported with apple output\n"
     exit 1
-end
-
-def load_with_en(input_encoding = nil, f = STDIN)
-    f.binmode
-    r = f.read
-    if input_encoding
-        begin
-            return r.encode('UTF-8', input_encoding).split("\n")
-        rescue EncodingError => e
-            STDERR.printf "userdic-ng: error: failed to decode input as %s: %s\n", input_encoding, e.message
-            exit 1
-        end
-    end
-    t = ''
-    ['UTF-16', 'CP932', 'EUC-JP', 'UTF-8'].each do |en|
-        begin
-            t = r.encode('UTF-8', en)
-        rescue
-            # STDERR.printf "%s: invalid encoding\n", en
-            next
-        end
-        # STDERR.puts en
-        break
-    end
-    t.split("\n")
-end
-
-def load(type, input_encoding = nil)
-    if type == 'apple' && input_encoding
-        STDERR.printf "userdic-ng: error: --input-encoding is not supported with apple input\n"
-        exit 1
-    end
-    t = load_with_en(input_encoding)
-    t = t.decode_plist if type == 'apple'
-    r = t.map do |s|
-        getr(type, s)
-    end
-    r.delete(nil)
-    r
-end
-
-def expand_require(path)
-    r = []
-    open(path).each do |s|
-        c, a = s.split
-        if c == 'require' && a =~ /\'\./
-            p = a[1,a.size - 2]
-            r += expand_require(p)
-        else
-            r << s
-        end
-    end
-    r
+  end
 end
 
 if ARGV[0] == 'build'
-    expand_require('userdic.rb').each {|s| puts s}
-    exit
+  UserdicNg::Builder.expand_require('userdic.rb').each { |line| puts line }
+  exit
 end
 
 options = {}
 parser = OptionParser.new do |opts|
-    opts.on('--input-encoding ENCODING') {|v| options[:input_encoding] = validate_encoding!(v)}
-    opts.on('--output-encoding ENCODING') {|v| options[:output_encoding] = validate_encoding!(v)}
+  opts.on('--input-encoding ENCODING') { |value| options[:input_encoding] = UserdicNg::EncodingIO.validate!(value) }
+  opts.on('--output-encoding ENCODING') { |value| options[:output_encoding] = UserdicNg::EncodingIO.validate!(value) }
 end
 
 begin
-    parser.order!(ARGV)
+  parser.order!(ARGV)
+rescue ArgumentError => e
+  STDERR.printf "userdic-ng: error: %s\n", e.message
+  exit 1
 rescue OptionParser::ParseError => e
-    STDERR.printf "userdic-ng: error: %s\n", e.message
-    usage
+  STDERR.printf "userdic-ng: error: %s\n", e.message
+  usage
 end
 
 usage if ARGV.size != 2
-if ARGV[1] == 'apple' && options[:output_encoding]
-    STDERR.printf "userdic-ng: error: --output-encoding is not supported with apple output\n"
-    exit 1
-end
 
-load(ARGV[0], options[:input_encoding]).save(ARGV[1], options[:output_encoding])
+from_type, to_type = ARGV
+validate_input_options!(from_type, to_type, options)
+
+converter = UserdicNg::Converter.new
+records = converter.load(from_type, input_encoding: options[:input_encoding])
+converter.save(records, to_type, output_encoding: options[:output_encoding])
