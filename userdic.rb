@@ -23,63 +23,80 @@
 require 'optparse'
 require 'rexml/document'
 
-require './hinshi.rb'
-require './record.rb'
-require './kana_normalizer.rb'
-require './hinshi_map.rb'
-require './apple_plist.rb'
-require './encoding_io.rb'
-require './formats.rb'
-require './converter.rb'
-require './builder.rb'
+require_relative 'version'
+require_relative 'hinshi'
+require_relative 'record'
+require_relative 'kana_normalizer'
+require_relative 'hinshi_map'
+require_relative 'apple_plist'
+require_relative 'encoding_io'
+require_relative 'formats'
+require_relative 'converter'
 
-USAGE = <<~TEXT.freeze
-  Usage: userdic-ng [--input-encoding ENCODING] [--output-encoding ENCODING] <from> <to> < input > output
-         from, to = mozc, google, anthy, canna, atok, msime, wnn, apple, generic
-TEXT
+module UserdicNg
+  class CLI
+    USAGE = <<~TEXT.freeze
+      Usage: userdic-ng [--input-encoding ENCODING] [--output-encoding ENCODING] <from> <to> < input > output
+             from, to = mozc, google, anthy, canna, atok, msime, wnn, apple, generic
+    TEXT
 
-def usage
-  STDERR.print USAGE
-  exit 1
-end
+    class << self
+      def run(argv, stdout: STDOUT, stderr: STDERR)
+        options = parse_options(argv, stdout: stdout, stderr: stderr)
+        return 0 if options[:show_version]
 
-def validate_input_options!(from_type, to_type, options)
-  if from_type == 'apple' && options[:input_encoding]
-    STDERR.printf "userdic-ng: error: --input-encoding is not supported with apple input\n"
-    exit 1
+        return usage(stderr) unless argv.size == 2
+
+        from_type, to_type = argv
+        validate_input_options!(from_type, to_type, options, stderr: stderr)
+
+        converter = Converter.new
+        records = converter.load(from_type, input_encoding: options[:input_encoding], warn_io: stderr)
+        converter.save(records, to_type, output_encoding: options[:output_encoding], output: stdout)
+        0
+      end
+
+      private
+
+      def parse_options(argv, stdout:, stderr:)
+        options = {}
+        parser = OptionParser.new do |opts|
+          opts.on('--input-encoding ENCODING') { |value| options[:input_encoding] = EncodingIO.validate!(value) }
+          opts.on('--output-encoding ENCODING') { |value| options[:output_encoding] = EncodingIO.validate!(value) }
+          opts.on('--version') do
+            stdout.puts VERSION
+            options[:show_version] = true
+          end
+        end
+        parser.order!(argv)
+        options
+      rescue ArgumentError => e
+        stderr.printf "userdic-ng: error: %s\n", e.message
+        exit 1
+      rescue OptionParser::ParseError => e
+        stderr.printf "userdic-ng: error: %s\n", e.message
+        exit usage(stderr)
+      end
+
+      def usage(stderr)
+        stderr.print USAGE
+        1
+      end
+
+      def validate_input_options!(from_type, to_type, options, stderr:)
+        if from_type == 'apple' && options[:input_encoding]
+          stderr.printf "userdic-ng: error: --input-encoding is not supported with apple input\n"
+          exit 1
+        end
+        return unless to_type == 'apple' && options[:output_encoding]
+
+        stderr.printf "userdic-ng: error: --output-encoding is not supported with apple output\n"
+        exit 1
+      end
+    end
   end
-  if to_type == 'apple' && options[:output_encoding]
-    STDERR.printf "userdic-ng: error: --output-encoding is not supported with apple output\n"
-    exit 1
-  end
 end
 
-if ARGV[0] == 'build'
-  UserdicNg::Builder.expand_require('userdic.rb').each { |line| puts line }
-  exit
+if $PROGRAM_NAME == __FILE__
+  exit UserdicNg::CLI.run(ARGV.dup)
 end
-
-options = {}
-parser = OptionParser.new do |opts|
-  opts.on('--input-encoding ENCODING') { |value| options[:input_encoding] = UserdicNg::EncodingIO.validate!(value) }
-  opts.on('--output-encoding ENCODING') { |value| options[:output_encoding] = UserdicNg::EncodingIO.validate!(value) }
-end
-
-begin
-  parser.order!(ARGV)
-rescue ArgumentError => e
-  STDERR.printf "userdic-ng: error: %s\n", e.message
-  exit 1
-rescue OptionParser::ParseError => e
-  STDERR.printf "userdic-ng: error: %s\n", e.message
-  usage
-end
-
-usage if ARGV.size != 2
-
-from_type, to_type = ARGV
-validate_input_options!(from_type, to_type, options)
-
-converter = UserdicNg::Converter.new
-records = converter.load(from_type, input_encoding: options[:input_encoding])
-converter.save(records, to_type, output_encoding: options[:output_encoding])

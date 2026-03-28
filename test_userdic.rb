@@ -4,10 +4,10 @@
 require 'minitest/autorun'
 require 'open3'
 require 'shellwords'
-require 'tempfile'
 
 class UserdicNgTest < Minitest::Test
   REPO = File.expand_path(__dir__)
+  COMMAND = File.join(REPO, 'bin', 'userdic-ng')
 
   def setup
     hinshi_rb = File.join(REPO, 'hinshi.rb')
@@ -17,18 +17,7 @@ class UserdicNgTest < Minitest::Test
   end
 
   def run_userdic(args, stdin_data = ''.b)
-    Open3.capture3('ruby', 'userdic.rb', *args, stdin_data: stdin_data, chdir: REPO, binmode: true)
-  end
-
-  def run_built_userdic(args, stdin_data = ''.b)
-    Tempfile.create(['userdic-ng-built', '.rb']) do |file|
-      stdout, stderr, status = run_userdic(%w[build])
-      assert status.success?, stderr
-      file.binmode
-      file.write(stdout)
-      file.flush
-      Open3.capture3('ruby', file.path, *args, stdin_data: stdin_data, chdir: REPO, binmode: true)
-    end
+    Open3.capture3('ruby', COMMAND, *args, stdin_data: stdin_data, chdir: REPO, binmode: true)
   end
 
   def decode_output(bytes, encoding = 'UTF-8')
@@ -135,10 +124,9 @@ class UserdicNgTest < Minitest::Test
     assert_includes decode_output(apple_stdout), '<string>あ</string>'
   end
 
-  def test_built_script_matches_runtime_behavior
-    stdout, stderr, status = run_built_userdic(%w[generic generic], "あ\t亜\t名詞\n".b)
-
+  def test_version_option_prints_2_1
+    stdout, stderr, status = run_userdic(%w[--version])
     assert status.success?, stderr
-    assert_equal "あ\t亜\t名詞\n".b, stdout
+    assert_equal "2.1\n", decode_output(stdout)
   end
 end

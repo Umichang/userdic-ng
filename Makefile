@@ -23,13 +23,10 @@ UD_ATOK    = atok.txt
 UD_MSIME   = msime.txt
 UD_APPLE   = apple.plist
 BINDIR	   = /usr/local/bin
-COMMAND    = userdic-ng
-VERSION    = 1.0
-DISTDIR    = userdic-ng-${VERSION}
+COMMAND    = bin/userdic-ng
+INSTALL_TO = ${BINDIR}/userdic-ng
+VERSION    = 2.1
 
-${COMMAND}: userdic.rb hinshi.rb record.rb kana_normalizer.rb hinshi_map.rb apple_plist.rb encoding_io.rb formats.rb converter.rb builder.rb
-	./userdic.rb build > $@
-	chmod +x $@
 hinshi.rb: hinshi mkhinshi.rb
 	./mkhinshi.rb < hinshi > $@
 
@@ -40,28 +37,24 @@ atok:  ${UD_ATOK}
 msime: ${UD_MSIME}
 apple: ${UD_APPLE}
 ${UD_MOZC}:  ${UD_GENERIC} ${COMMAND}
-	./${COMMAND} generic mozc  < ${UD_GENERIC} > $@
+	${COMMAND} generic mozc  < ${UD_GENERIC} > $@
 ${UD_ANTHY}: ${UD_GENERIC} ${COMMAND}
-	./${COMMAND} generic anthy < ${UD_GENERIC} > $@
+	${COMMAND} generic anthy < ${UD_GENERIC} > $@
 ${UD_ATOK}:  ${UD_GENERIC} ${COMMAND}
-	./${COMMAND} generic atok  < ${UD_GENERIC} > $@
+	${COMMAND} generic atok  < ${UD_GENERIC} > $@
 ${UD_MSIME}: ${UD_GENERIC} ${COMMAND}
-	./${COMMAND} generic msime < ${UD_GENERIC} > $@
+	${COMMAND} generic msime < ${UD_GENERIC} > $@
 ${UD_APPLE}: ${UD_GENERIC} ${COMMAND}
-	./${COMMAND} generic apple < ${UD_GENERIC} > $@
+	${COMMAND} generic apple < ${UD_GENERIC} > $@
 
 ${UD_GENERIC}:; ln -s ${HOME}/.userdic-ng $@
 
-install: ${COMMAND}
-	install -c ${COMMAND} ${BINDIR}
+test: hinshi.rb
+	ruby test_userdic.rb
+
+install: hinshi.rb ${COMMAND}
+	install -c ${COMMAND} ${INSTALL_TO}
+
 clean:
-	rm -rf ${COMMAND} hinshi.rb ${UD_GENERIC} \
-	   ${UD_MOZC} ${UD_ANTHY} ${UD_ATOK} ${UD_MSIME} ${UD_APPLE} \
-	   ${DISTDIR} ${DISTDIR}.tar.gz
-dist: ${COMMAND}
-	rm -rf ${DISTDIR}
-	mkdir  ${DISTDIR}
-	cp -p Makefile userdic.rb mkhinshi.rb COPYING \
-	   record.rb kana_normalizer.rb hinshi_map.rb apple_plist.rb encoding_io.rb \
-	   formats.rb converter.rb builder.rb hinshi ${COMMAND} ${DISTDIR}
-	tar czvpf ${DISTDIR}.tar.gz ${DISTDIR}
+	rm -rf hinshi.rb ${UD_GENERIC} \
+	   ${UD_MOZC} ${UD_ANTHY} ${UD_ATOK} ${UD_MSIME} ${UD_APPLE}
