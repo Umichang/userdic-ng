@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
-require_relative '../userdic'
+require_relative '../lib/userdic_ng'
 
 exit UserdicNg::CLI.run(ARGV.dup)

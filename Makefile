@@ -23,11 +23,15 @@ UD_ATOK    = atok.txt
 UD_MSIME   = msime.txt
 UD_APPLE   = apple.plist
 BINDIR	   = /usr/local/bin
+LIBROOT    = /usr/local/lib
+LIBDIR     = ${LIBROOT}/userdic_ng
 COMMAND    = bin/userdic-ng
 INSTALL_TO = ${BINDIR}/userdic-ng
 VERSION    = 2.1
 
-hinshi.rb: hinshi mkhinshi.rb
+.PHONY: test install clean mozc google anthy atok msime apple
+
+lib/userdic_ng/hinshi.rb: hinshi mkhinshi.rb
 	./mkhinshi.rb < hinshi > $@
 
 mozc:  ${UD_MOZC}
@@ -36,25 +40,28 @@ anthy: ${UD_ANTHY}
 atok:  ${UD_ATOK}
 msime: ${UD_MSIME}
 apple: ${UD_APPLE}
-${UD_MOZC}:  ${UD_GENERIC} ${COMMAND}
+${UD_MOZC}:  ${UD_GENERIC} ${COMMAND} lib/userdic_ng/hinshi.rb
 	${COMMAND} generic mozc  < ${UD_GENERIC} > $@
-${UD_ANTHY}: ${UD_GENERIC} ${COMMAND}
+${UD_ANTHY}: ${UD_GENERIC} ${COMMAND} lib/userdic_ng/hinshi.rb
 	${COMMAND} generic anthy < ${UD_GENERIC} > $@
-${UD_ATOK}:  ${UD_GENERIC} ${COMMAND}
+${UD_ATOK}:  ${UD_GENERIC} ${COMMAND} lib/userdic_ng/hinshi.rb
 	${COMMAND} generic atok  < ${UD_GENERIC} > $@
-${UD_MSIME}: ${UD_GENERIC} ${COMMAND}
+${UD_MSIME}: ${UD_GENERIC} ${COMMAND} lib/userdic_ng/hinshi.rb
 	${COMMAND} generic msime < ${UD_GENERIC} > $@
-${UD_APPLE}: ${UD_GENERIC} ${COMMAND}
+${UD_APPLE}: ${UD_GENERIC} ${COMMAND} lib/userdic_ng/hinshi.rb
 	${COMMAND} generic apple < ${UD_GENERIC} > $@
 
 ${UD_GENERIC}:; ln -s ${HOME}/.userdic-ng $@
 
-test: hinshi.rb
-	ruby test_userdic.rb
+test: lib/userdic_ng/hinshi.rb
+	ruby test/test_userdic.rb
 
-install: hinshi.rb ${COMMAND}
+install: lib/userdic_ng/hinshi.rb ${COMMAND}
+	install -d ${BINDIR} ${LIBROOT} ${LIBDIR}
 	install -c ${COMMAND} ${INSTALL_TO}
+	install -c lib/userdic_ng.rb ${LIBROOT}/userdic_ng.rb
+	install -c lib/userdic_ng/*.rb ${LIBDIR}/
 
 clean:
-	rm -rf hinshi.rb ${UD_GENERIC} \
+	rm -rf lib/userdic_ng/hinshi.rb ${UD_GENERIC} \
 	   ${UD_MOZC} ${UD_ANTHY} ${UD_ATOK} ${UD_MSIME} ${UD_APPLE}

@@ -6,14 +6,14 @@ require 'open3'
 require 'shellwords'
 
 class UserdicNgTest < Minitest::Test
-  REPO = File.expand_path(__dir__)
+  REPO = File.expand_path('..', __dir__)
   COMMAND = File.join(REPO, 'bin', 'userdic-ng')
 
   def setup
-    hinshi_rb = File.join(REPO, 'hinshi.rb')
+    hinshi_rb = File.join(REPO, 'lib', 'userdic_ng', 'hinshi.rb')
     return if File.exist?(hinshi_rb)
 
-    system("cd #{REPO.shellescape} && ./mkhinshi.rb < hinshi > hinshi.rb", exception: true)
+    system("cd #{REPO.shellescape} && ./mkhinshi.rb < hinshi > lib/userdic_ng/hinshi.rb", exception: true)
   end
 
   def run_userdic(args, stdin_data = ''.b)

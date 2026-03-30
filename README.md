@@ -8,7 +8,9 @@
 ## 構成
 
 - `bin/userdic-ng`: 実行用エントリポイント
-- `userdic.rb`: CLI 実装本体
+- `lib/userdic_ng/`: 分割した実装モジュール
+- `lib/userdic_ng.rb`: 読み込み用エントリポイント
+- `test/`: テスト
 - `hinshi`, `mkhinshi.rb`: 品詞対応表の生成元
 
 GitHub から clone / download したら、そのまま `bin/userdic-ng` を使えます。`make dist` による配布アーカイブ生成は廃止しました。
@@ -64,6 +66,12 @@ make install
 ```
 
 権限が必要な環境では `sudo make install` を使ってください。
+
+`make install` は以下を配置します。
+
+- `/usr/local/bin/userdic-ng`
+- `/usr/local/lib/userdic_ng.rb`
+- `/usr/local/lib/userdic_ng/*.rb`
 
 ## 開発
 
